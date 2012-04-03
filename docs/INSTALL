@@ -51,13 +51,13 @@ servers or servers written by yourself.
     building the Java archives from Java source code. All you need
     is an installed and working J2 1.5+ SDK and Apache Ant 1.6+. 
     
-    From the installed directory 'J9P-1.0' (base directory) you change
-    to the 'build/' directory and use Ant to compile all archives:
+    From the installion directory (base directory) you change to the
+    'build/' directory and use Ant to compile all archives:
     
     	$ cd build/
     	$ ant distall
 
-	After completion you find the two jar files named 'J9P.lib-1.1.jar'
+	After completion you find the two jar files named 'J9P.core-1.1.jar'
     and 'J9P.engines-1.1.jar'in the build directory .
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -69,7 +69,7 @@ servers or servers written by yourself.
 	
 		$ ant doc
 		
-	The documentation is created in the 'docs/lib-api' directory.
+	The documentation is created in the 'docs/core-api' directory.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 2.2. USING DEBUGGING ASPECTS
