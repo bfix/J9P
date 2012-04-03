@@ -1,0 +1,185 @@
+
+=======================================================================
+    J9P - Pure Java implementation for Styx/9P protocol servers
+=======================================================================
+
+Copyright (C) 2009-2012, Bernd R. Fix <bernd.fix@aspector.com>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, see <http://www.gnu.org/licenses/>.
+
+=======================================================================
+
+This document describes how to run the example J9P servers included
+in the distribution package. These servers are:
+
+    1.) DBFS: Database server filesystem
+
+All example servers do not use authentication or message security. See
+the document RUNNING to find out how to enable and use the security
+features.
+
+=======================================================================
+1. DBFS -- DATABASE FILESYSTEM SERVER
+=======================================================================
+
+    The DBFS server allows access to SQL databases from a 9P network.
+    Database operations are mapped to file operations in the DBFS
+    namespace (see chapter 3 in the README document).
+
+-----------------------------------------------------------------------
+1.1. PRE-REQUISITES
+-----------------------------------------------------------------------
+
+    In order to run the DBFS server, you need a PostgreSQL database
+    server and the appropriate JDBC driver. Copy the Jar file of the
+    JDBC driver into the 'runtime/lib' directory; all jars in this
+    directory are automatically included in the server classpath.
+    
+    If you are using a different SQL database (like mysql or Oracle),
+    you can use the class 'j9p.engines.db.PostgreSQL' as a template
+    for your own implementation.
+
+-----------------------------------------------------------------------
+1.2. PREPARING THE RUNTIME ENVIRONMENT
+-----------------------------------------------------------------------
+
+    You need the necessary server authentication data if you want to
+    use the authentication feature of 9P. See chapter 3.2 of the
+    INSTALL document for more information.
+    
+    Next you have to edit the file 'config/NS-dbfs.xml' to match your
+    environment. There are four parameters defined in the config:
+    
+    * dbEngine:
+          If you have written your own SQL engine class, be sure to
+          change the value of this parameter to reflect the correct
+          class name of your implementation.
+          
+	* dbHost:
+	      This parameter specifies the machine (IP address or host name)
+	      where the database server is running and on what port it is
+	      listening for incoming connections.
+	
+	* dbUser, dbPassword: 
+          The credential of an administrative user on the database
+          server. This user must be able to retrieve a list of
+          database instances available on the server and need access
+          to server status/statistics information.
+
+-----------------------------------------------------------------------
+1.3.  RUNNING THE DBFS SERVER
+-----------------------------------------------------------------------
+
+    Change to the 'runtime/' directory and start the server from
+    a command line; the server will listen on port 7777
+    
+    $ bin/runServer.sh -p 7777 -a config/AuthData.xml config/NS-dbfs.xml
+
+    (You can omit the arguments to get a list of available options).
+
+-----------------------------------------------------------------------
+1.4.  USING THE DBFS SERVER FROM A 9P NETWORK
+-----------------------------------------------------------------------
+    
+    If the server has started and is listening for client connections,
+    you can use Plan9 or Inferno to connect to the server:
+    
+    ; mount -C sha/rc4_128 tcp!host!7777 /n/remote
+    ; cd /n/remote
+    ; ls -l
+    d-rwxr-xr-x M 6 dbfs dbfs  0 Mar 28 14:20 databases
+    --rw-r--r-- M 6 dbfs dbfs 36 Mar 28 14:20 status
+    
+    We can check the server status by reading the "status" file:
+    
+    ; cat status
+    PostgreSQL 8.1 database server
+    O.K.
+    
+    Change into the 'databases' directory and you will see all
+    available database instances on the server:
+    
+    ; cd databases
+    ; ls -l
+    d-r--r--r-- M 6 dbfs dbfs 0 Mar 28 14:20 NAVDB
+    d-r--r--r-- M 6 dbfs dbfs 0 Mar 28 14:20 postgres
+    d-r--r--r-- M 6 dbfs dbfs 0 Mar 28 14:20 template0
+    d-r--r--r-- M 6 dbfs dbfs 0 Mar 28 14:20 template1
+    d-r--r--r-- M 6 dbfs dbfs 0 Mar 28 14:20 wikidb
+    
+    The list you see will reflect the databases on your
+    own server; this is just an example.
+    
+    Change into an instance directory and you will find
+    a file called "session". Reading this file will show:
+    
+    ; cd NAVDB
+    ; ls -l
+    --rw-rw-rw- M 6 dbfs dbfs 0 Mar 28 14:20 session
+    ; cat session
+    No (valid) authentication data!
+    
+    In order to open a new database session, the client must provide a
+    user/password credential to access the instance. This is achieved
+    by writing that information to the session file:
+    
+    ; echo navdb:navdb > session
+    ; cat session
+    0
+    ; ls -l 0/
+    ---w------- M 6 inferno inferno 0 Mar 28 14:30 0/query
+    --r-------- M 6 inferno inferno 0 Mar 28 14:30 0/result
+
+    If have provided a valid user/password pair to access the database,
+    reading the session file will return a session identifier. The
+    server automatically creates a new subdirectory based on the
+    identifier; this session directory contains two file:
+    
+    "query" (write-only): Execute a SQL statement on the database
+                          by writing the command to this file.
+      
+    "result" (read-only): Retrieve results for queries and commands
+    
+    We now select data from the database:
+    
+    ; echo 'select * from y_tz;' > 0/query
+    ; ls -l 0/
+    ---w------- M 6 inferno inferno    0 Mar 28 14:30 0/query
+    --r-------- M 6 inferno inferno 2989 Mar 28 14:30 0/result
+    ; cat 0/result
+    # @SQL@: select * from y_tz;
+    # @STATUS@: SUCCESSFUL
+    # @COLS@: id¦type¦name¦icao¦con_auth¦wgs_datum¦lvl¦upper_alt¦lower_alt¦rnp¦cycle_date
+    # @RESULT@: 49
+    FP00003¦01¦TZ MINUS 5 E NORTH¦FP¦NIMA¦WGE¦B¦U¦U¦000¦200107
+    FP00004¦01¦TZ MINUS 5 E SOUTH¦FP¦NIMA¦WGE¦B¦U¦U¦000¦200107
+    FP00005¦01¦TZ INDIA MINUS 5 30¦FP¦NIMA¦WGE¦B¦U¦U¦000¦200107
+    :
+    FP00049¦01¦TZ MINUS 11 L NORTH¦FP¦NIMA¦WGE¦B¦U¦U¦000¦200108
+    FP00050¦01¦TZ MINUS 12 M¦FP¦NIMA¦WGE¦B¦U¦U¦000¦200108
+    FP00051¦01¦TZ PLUS 12 Y¦FP¦NIMA¦WGE¦B¦U¦U¦000¦200108
+    ; ls -l 0/
+    ---w------- M 6 inferno inferno 0 Mar 28 14:30 0/query
+    --r-------- M 6 inferno inferno 0 Mar 28 14:30 0/result
+    
+-----------------------------------------------------------------------
+1.5.  LIMITATIONS
+-----------------------------------------------------------------------
+    
+    The DBFS server is just an example how to write J9P servers and has
+    some serious limitations:
+    
+    * No handling of blobs
+    * Not save in multiple sessions to the same instance
+    * No way to terminate created sessions

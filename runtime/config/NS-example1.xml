@@ -1,0 +1,7 @@
+<Namespaces>
+    <Namespace user="*">
+        <Directory type="logDir" name="/" uid="sys" gid="sys" mode="755" />
+            <File type="procFile" name="counter" mode="666" class="j9p.example.Counter"/>
+        </Directory>
+    </Namespace>
+</Namespaces>

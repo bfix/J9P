@@ -1,0 +1,31 @@
+<!--
+=======================================================================
+	Namespace configuration for database StyxServer
+=======================================================================
+-->
+
+<Namespaces authentication="required">
+
+	<!--
+	=======================================
+    	extra namespace entry handlers
+	=======================================
+	-->
+	<EntryHandler>
+		<EntryType name="dbfs"  class="j9p.example.dbfs.ServerDirectory"/>
+	</EntryHandler>
+
+	<!--
+	=======================================
+    namespace for dbfs server
+	=======================================
+	-->
+	<Namespace user="*" device="db">
+		<Directory type="dbfs" name="/" uid="dbfs" gid="dbfs" mode="755"
+		    dbEngine="j9p.example.dbfs.PostgreSQL"
+			dbHost="olymp:5432"
+			dbUser="postgres"
+			dbPassword="postgres" 
+		/>
+	</Namespace>
+</Namespaces>

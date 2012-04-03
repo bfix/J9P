@@ -1,0 +1,417 @@
+
+#######################################################################
+    J9P - Pure Java implementation for Styx/9P protocol servers
+#######################################################################
+
+Copyright (C) 2009-2012, Bernd R. Fix <bernd.fix@aspector.com>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the  GNU General Public License  as published by the
+Free Software Foundation; either version 3 of the License,  or (at your
+option) any later version.
+
+This program is  distributed  in the hope  that it will  be useful, but
+WITHOUT ANY WARRANTY;  without even the implied warranty  of MERCHANTA-
+BILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; if not, see <http://www.gnu.org/licenses/>.
+
+#######################################################################
+
+
+This document describes how to write 9P servers using the J9P framework
+for the development.  It focuses on the implementation process and does
+not describe the design phase - this is the job you have do do yourself
+(see chapter 3 in the README document).
+
+This document is just a brief introduction and no in-depth tutorial.
+ 
+
+=======================================================================
+1. BASICS
+=======================================================================
+
+    9P servers publish (export) namespaces, that are mounted and used
+    by clients. In the J9P framework such namespace is constructed as
+    a tree of namespace entries that map to Java classes.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1.1. NAMESPACE ENTRY JAVA CLASSES
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    The abstract base class for all namespace entries is the class
+    'j9p.ns.Entry'; it encapsulates the data and methods common to
+    all namespace entries.
+    
+    File operations on an entry trigger methods in the entry handler,
+    so it can react to file operations. The following basic operations
+    are mapped to methods:
+     
+      * create: a new entry is created (in a directory)
+      * open:   an entry is opened for access (file or dir)
+      * read:   entry (usually file) content is read 
+      * write:  file content is modified
+      * remove: an entry is removed from a directory
+      
+    The class hierarchy of built-in namespace entries in J9P looks
+    like this:
+    
+|                   +  Directory  <----  LogicalDirectory
+|                   |
+|       Entry  <----+             +----  LogicalFile
+|                   |             |
+|                   +  File  <----+----  DiskFile
+|                                 |
+|                                 +----  ProcessFile
+                                 
+    There are two basic types of namespace entries: Directories and
+    files. Directories act as container for other directories or files,
+    while a file is a container for content. These basic entries are
+    abstract base classes in the J9P framework.
+    
+    Instances of 'LogicalDirectory' can be used to create a namespace
+    hierarchy. A 'LogicalDirectory' is not mapped to any filesystem
+    directory but only exists in-memory. 
+    
+    A 'LogicalFile' is a file entry that also only exists in-memory
+    and has no relation to any file in a disk-based filesystem. Any
+    changes to the file content are lost if the server is shut down.
+    
+    A 'DiskFile' is mapped to a file in a filesystem. Changes applied
+    to the file content are persistent (stored in the actual file).
+    As we will see, the J9P server controls access to the file based on
+    permissions in the 9P network, not by the access controls used on
+    the J9P server itself. The advantage is that clients need no
+    account on the J9P server. You only have to make sure that the J9P
+    instance has the required access privileges to the referenced file.
+    
+    A 'ProcessFile' is a helper class for "intelligent" files. To use
+    a ProcessFile, you need to write a Java class that implements the
+    ProcessFile.Listener interface. Such classes implement special
+    handler methods that are triggered by 'read' or 'write' operations
+    on the file. This will be explained in detail in chapter 2.1
+    
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1.2. CONSTRUCTING NAMESPACES
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    Namespaces are constructed by the J9P server from a XML
+    configuration file like this one:    
+    
+|<Namespaces>
+|   <EntryHandler>
+|      <EntryType name="myDir"  class="..."/>
+|      <EntryType name="myFile" class="..."/>
+|   </EntryHandler>
+|   <Namespace user="*">
+|      <Directory type="logDir" uid="sys" gid="sys" mode="755" />
+|         <Directory type="logDir" name="data">
+|            <File type="diskFile" name="s1.k" ref="..." />
+|            <File type="logFile" name="info" mode="444" size="128">
+|               UkVBRC1PTkxZIFRFWFQgRklMRSAoU0VUMi5EQVRBKQo=
+|            </File>
+|         </Directory>
+|         <File type="procFile" name="ctl" mode="644" class="..." .../>
+|      </Directory>
+|   </Namespace>
+|</Namespaces>
+
+    The "EntryHandler" section is used to register custom handlers with
+    the J9P server. The name attribute is later used to reference the
+    custom handler; the class attributes specifies the fully qualified
+    name of the implementing Java class.
+    
+    Namespace entries are either "Directory" or "File" instances; the
+    corresponding handler class is referenced with the type attribute.
+    The type is either a built-in type ("logDir","logFile","diskFile"
+    or "procFile") or a type of a custom handler defined in the
+    "EntryHandler" section.
+
+-----------------------------------------------------------------------
+1.2.1. MANDATORY ATTRIBUTES FOR BUILT-IN HANDLERS
+-----------------------------------------------------------------------
+
+    Each entry has some mandatory attributes that must be specified
+    in the XML element:
+    
+      * name: name of the entry (must be "/" for root directory)
+      * uid:  name of owner (user)
+      * gid:  group name
+      * mode: access permissions (octal)
+      
+   The attributes "uid", "gid" and "mode" - if omitted in an entry
+   definition - are inherited from the parent directory. So all
+   entries in the example namespace will be owned by "sys" because
+   only the root directory defines a "uid" attribute.
+   
+   Additional attributes are passed to the implementing handler object
+   and are handler specific. That way custom handler can handle custom
+   attributes.
+   
+-----------------------------------------------------------------------
+1.2.1. ADDITIONAL ATTRIBUTES FOR BUILT-IN HANDLERS
+-----------------------------------------------------------------------
+
+   The built-in handlers for file entries have additional mandatory
+   attributes - in a way they *are* custom handlers:
+   
+   * "LogicalFile": The attribute "size" defines the maximum size
+     of the entry (pre-allocated buffer). A LogicalFile is also
+     the only built-in handler that processes data between XML element
+     tags; the data represents the initial file content (B64-encoded).
+   
+   * "diskFile": The "ref" attributes specifies the (absolute) path
+     to the file in the "real" filesystem of the server.
+     
+   * "procFile": The "class" attribute references a custom
+     implementation of the ProcessFile.Listener interface. Instances
+     with that interface can react to read and write operations
+     on a file very easy (see chapter 2.1 in this document).
+     
+     If your custom handler is derived from the class ProcessAdaptor
+     (see chapter 2.2 and 2.2.2), the "procFile" entry has the
+     additional attribute "buf", specifying the size of the internal
+     R/W buffers (if omitted, buf defaults to 4096).  
+         
+    
+=======================================================================
+2. IMPLEMENTING SIMPLE CUSTOM HANDLERS
+=======================================================================
+    
+    I will describe the process of implementing custom handlers by
+    using some examples:
+    
+      1) A file that counts the number of bytes written to it
+         returns that number on a read operation
+          
+      2) A file that represents a logging sensor device
+          
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2.1. IMPLEMENTING A PROCFILE LISTENER
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    The easiest way to write a custom handler is to write a custom Java
+    class that implements the ProcessFile.Listener interface. This is
+    the best solution, if your "file" should only react to read and
+    write operations.
+    
+    The Listener interface defines two simple methods:
+    
+   	  * void asInput (byte[] data, long offset);
+   	  
+   	    The listener receives data because a chunk of data is written
+   	    to the file. The specified offset is the start position within
+   	    the file (as seen by the client).   	    
+   	  
+      * byte[] getOutput (long offset, int count);
+      
+        Data is requested from the listener because a read operation on
+        the file requests a chunk of data with a maximum length
+        (count). The "read" starts at the specified offset.
+     
+-----------------------------------------------------------------------
+2.1.1. EXAMPLE 1: COUNTING WRITTEN BYTES
+-----------------------------------------------------------------------
+
+     A Listener implementation is sufficient for our first example: A
+     file that counts the total number of bytes written to it and
+     returns that number on a read operation. Our namespace for the
+     example can look like this (stored in 'config/NS-example1.xml'):
+     
+|<Namespaces>
+|    <Namespace user="*">
+|        <Directory type="logDir" uid="sys" gid="sys" mode="755">
+|            <File type="procFile" name="counter" mode="666"
+|                  class="j9p.example.Counter"
+|            />
+|        </Directory>
+|    </Namespace>
+|</Namespaces>
+     
+    The class we have to implement is "j9p.example.Counter" and the
+    source can look like this:
+
+|  package j9p.examples;
+|
+|  import j9p.ns.handlers.ProcessFile;
+|
+|  public class Counter implements ProcessFile.Listener {
+|
+|      private long counter = 0;
+|
+|      public void asInput (byte[] data, long offset) {
+|          counter += data.length;
+|      }
+|
+|      public byte[] getOutput (long offset, int count) {
+|          if (offset != 0) return null;  // [1]
+|          return (counter + "\n").getBytes();
+|      }
+|  }
+
+    The only "non-trivial" statement in the whole implementation is [1]
+    that makes sure a read only reads something "from the start" of the
+    file. This is necessary to signal the client an "end-of-file", so
+    no further read attempts will be made.
+    
+    An implementation that wants to return huge amounts of data
+    must handle this differently; it should return "null" if a read
+    beyond the length of content is requested.
+    
+    In the 'runtime' directory run the example:
+    
+    $ bin/runServer.sh -p 7777 config/NS-example1.xml
+
+    Test the server:
+    
+    *********** Inferno ***********
+    
+    ; mount -a tcp!<server>!7777 /n/remote
+    ; ls -l /n/remote
+    --rw-rw-rw- M 4 sys sys 0 Mar 30 22:12 /n/remote/counter
+    ; echo 'Write some non-sense to the file' > /n/remote/counter
+    ; cat /n/remote/counter
+    33
+    ; echo 'And now to something completely different' > /n/remote/counter
+    ; cat /n/remote/counter
+    75
+    ;
+
+    *********** Plan9 ***********
+
+	% srv tcp!<server>!7777 j9p
+	post...
+	% mount -n /srv/j9p /n/remote
+    % ls -l /n/remote
+    --rw-rw-rw- M 25 sys sys 0 Apr  1 11:45 /n/remote/counter
+    % echo 'Write some non-sense to the file' > /n/remote/counter
+    % cat /n/remote/counter
+    33
+    % echo 'And now to something completely different' > /n/remote/counter
+    % cat /n/remote/counter
+    75
+    %	
+    
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2.2. CONCURRENT PROCFILE HANDLERS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    In some cases it is required that the file "handler" is running
+    concurrent with the J9P server. In these cases the custom handler
+    is best derived from the abstract base class "ProcessAdaptor".
+    A ProcessAdaptor instance runs in its own thread and separates the
+    R/W operations on the namespace file from its own R/W operations.
+    
+    When the concurrent handler requires data (that was written to a
+    namespace file before), it calls the method
+    
+        byte[] read (int num, boolean block)
+        
+    to request a chunk of data of maximum size 'num'. If 'block' is
+    true, the call will block if no data is available; otherwise
+    the call will return 'null' to indicate that no data is available.
+    
+    If the handler wants to output data to the namespace file it calls
+    
+        int write (byte[] data)
+    
+    to pass a chunk of data to the file for reading by clients.
+    
+-----------------------------------------------------------------------
+2.2.1. EXAMPLE 2: LOGGING SENSOR DEVICE
+-----------------------------------------------------------------------
+
+    As an example for a concurrent handler we will implement a file
+    that represents a sensor. Writing to the file will send commands
+    to the sensor; reading the file will return the sensor log since
+    the last read.
+
+    A namespace for the example can look like this:
+     
+|<Namespaces>
+|    <Namespace user="*">
+|        <Directory type="logDir" uid="sys" gid="sys" mode="755">
+|            <File type="procFile" name="sensor" mode="666"
+|                  class="j9p.example.Sensor" buf="8192"
+|            />
+|        </Directory>
+|    </Namespace>
+|</Namespaces>
+     
+    The class we have to implement is "j9p.example.Sensor" and the
+    problem is certainly a bit more complex than the previous example.
+    But a basic implementation doesn't look every complex with J9P: 
+
+|  package j9p.examples;
+|
+|  import j9p.ns.handlers.ProcessFile;
+|  import j9p.ns.handlers.ProcessAdaptor;
+|
+|  public class Sensor extends ProcessAdaptor {
+|      public void run () {
+|          while (isActive) {
+|              byte[] cmd = read (10, false);
+|              if (cmd != null) ... // handle command
+|              byte[] snapshot = getSensorData();
+|              write (snapshot);
+|              // wait between snapshots
+|          }
+|      } 
+|  }
+
+    Maybe we have to specify a sensor address or some other parameter
+    for the Sensor class. This is done by specifying these parameters
+    in the entry definition.
+
+-----------------------------------------------------------------------
+2.2.2. USING CUSTOM ATTRIBUTES
+-----------------------------------------------------------------------
+
+    All parameters defined for an entry element in the configuration
+    XML are passed to a method
+    
+        Process startHandler (Hashtable<String,String> p)
+      
+    defined in the base class Process; if we override this method in
+    our custom handler, so we can parse our custom argument values:
+
+|  public Process startHandler (Hashtable<String,String> p) {
+|      String param1 = p.get ("...");
+|      :
+|      // handle parameter
+|      return null;
+|  }
+
+    Parameter values are always of type String; if you need them in a
+    different form like integer values or flags, you have to convert
+    them in your 'startHandler()' method.
+    
+    If the custom listener/handler is derived from ProcessAdaptor, make
+    sure the custom 'startHandler()' method first calls the parent
+    method; if you don't, the base class will not see its attributes
+    (buffer size; defaults to 4096 bytes). 
+
+
+=======================================================================
+3. IMPLEMENTING COMPLEX CUSTOM HANDLERS
+=======================================================================
+
+    All examples so far have been with isolated files in a namespace;
+    but the fun really begins when namespace entries are interacting.
+    
+    Since the namespace is actually a tree-like structure made up of
+    Java objects, these objects can easily interact by calling methods
+    on each other.
+    
+    Every namespace entry has a parent; this parent is always a
+    directory. The only exception is the root directory; it has no
+    parent by definition. So a file handler can fetch its parent object
+    and add new files or directories to it - simply by calling the
+    appropriate methods on the Directory object.
+    
+    This way custom handlers can manipulate the namespace they are
+    contained in and the namespace visible to clients may extend
+    the initial namespace as defined in the configuration file.
+    

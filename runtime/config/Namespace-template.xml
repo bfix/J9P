@@ -1,0 +1,40 @@
+<!--
+=======================================================================
+	Namespace template for J9P/StyxServer
+=======================================================================
+-->
+
+<Namespaces authentication="required">
+
+	<!--
+	=======================================
+    	extra namespace entry handlers
+	=======================================
+	-->
+	<EntryHandler>
+		<EntryType name="myDir"  class="..."/>
+		<EntryType name="myFile" class="..."/>
+	</EntryHandler>
+
+	<!--
+	=======================================
+    common namespace (user "*", all)
+	=======================================
+	-->
+	<Namespace user="*">
+		<Directory type="logDir" name="/" uid="srv" gid="srv" mode="755">
+			<Directory type="logDir" name="...">
+				<File type="diskFile" name="..." mode="644" ref="..." />
+				<File type="logFile"  name="..." mode="444" size="128">
+					UkVBRC1PTkxZIFRFWFQgRklMRSAoU0VUMi5EQVRBKQo=
+				</File>
+			</Directory>
+			<File type="procFile" name="trigger" mode="666"
+				  class="..." param1="test1" param2="test2"
+			/>
+			<Directory type="myDir" name="...">
+				<File type="myFile" name="..." .../>
+			</Directory>
+		</Directory>
+	</Namespace>
+</Namespaces>

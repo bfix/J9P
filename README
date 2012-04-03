@@ -1,0 +1,143 @@
+
+J9P - Pure Java implementation for Styx/9P protocol servers
+===========================================================
+
+Copyright (C) 2009-2012, Bernd R. Fix <bernd.fix@aspector.com>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, see <http://www.gnu.org/licenses/>.
+
+
+INTRODUCTION
+------------
+
+The J9P development framework is designed to ease the integration of legacy or
+non-9P services into 9P networks. It is a pure Java implementation and will
+run on various hard- and software platforms.
+
+Plan9 [1] (and Inferno [2]) introduced a new paradigm for services in networked
+environments: In a 9P network every service is mapped to file operations in a
+virtual namespace that is published by the server that provides the service
+(either locally or remote).
+   
+The J9P framework provides a generic 9P server that publishes such 'virtual'
+namespaces to clients. J9P namespaces are defined in a configuration file and
+are assembled from directories (branches) and files (leaves).
+   
+Every J9P namespace entry is associated with a handler that controls the
+behavior and content of the entry. By developing customized 'entry handlers'
+that operate on entries in the published namespace, you can integrate legacy
+or other non-9P services into a 9P network by mapping the service functionality
+to file operations.
+   
+   
+STYX/9P PROTOCOL SUPPORT
+------------------------
+    
+The J9P server supports both versions of the 9P protocol [3] - the older
+protocols "Styx" from Inferno and "9P" from Plan9 as well as the newer "9P2000"
+introduced by the 4th edition of Plan9.
+   
+It also fully implements the security measures available in the 9P protocol; it
+provides a secure and authenticated communication between clients and server
+that includes:
+   
+* Certificate-based mutual authentication
+* Diffie-Hellman key exchange
+* Message digest and encryption
+      
+EXAMPLE FOR VIRTUAL NAMESPACES AND ENTRY HANDLERS (DBFS)
+--------------------------------------------------------
+
+To explain the concept of virtual namespaces and entry handlers to integrate
+non-9P services into 9P networks, we will have a look into a "real-world"
+example (also used as an example server included in the software distribution):
+   
+Let's assume we want to integrate an existing SQL database server into a 9P
+network. Our first step is to map the service to a virtual filesystem
+(namespace) and file operations in that namespace. There is no "best practice"
+on how to do this, but following the design and usage patterns of native 9P
+servers seems very helpful.
+   
+We want the namespace for our dbfs server to look like this:
+   
+      /
+      +---- status
+      +---- databases/
+            +---- inventory/
+            I     +---- session
+            I     +---- 0/
+            I           +---- query
+            I           +---- result
+            :     :
+   
+The root directory ("/") is the root of the exported (published) namespace for
+the server. It contains two entries:
+   
+1. a file named "status": This is a read-only text file that contains the
+current status/statistics information of the underlying database server.
+A client "reads" the file if it wants to know the status of the server.
+         
+2. a directory called "databases" that contains sub-directories for each
+database instance running on the server. The name of the sub-directory
+corresponds to the name of the database on the server.
+   
+Each database directory contains at least a file named "session"; the usage
+of this file is the same as with the "clone" file in the network stack:
+Reading the "session" file will return an integer value (session identifier).
+The server creates a new sub-directory based on the session id and puts two
+files into that directory:
+   
+1. "query": Execute a SQL statement by writing it to this file
+      
+2. "result": Retrieve results for queries and commands
+      
+N.B.: Before we can read a "session" file to get a new database session, we
+need to provide authentication data (role/user name and password) to the
+session file; this is accomplished by writing a string "user:password" to the
+session file. If no authentication data is provided (or not valid to log onto
+the database), reading the session file will return an error message.
+
+Everything below the root directory is highly dynamic and depends on
+information of the actual database server instance. The behavior of the "root"
+directory is controlled by a special entry handler that is the core of the
+dbfs server. See the file README.DBFS for a detailed description.
+   
+A detailed description of built-in handlers and how to write your own custom
+entry handler is described in the DEV_GUIDE document.       
+
+REQUIREMENTS / PRE_REQUISITES
+------------------------------
+
+To use the J9P framework for the development of your own integration projects
+you need to have the following software environment on your machine:
+
+* Java 1.5+ software development kit [4]
+* Apache Ant (build.xml provided) [5]
+* JCE provider implementation (runtime): The use of an additional JCE provider
+is optional if you don't use all encryption modes for the connections (like
+RC4 or IDEA). To support more encryption algorithms and message digests for
+9P connections you must use an additional JCE provider.
+
+The use of AspectJ [6] is encouraged (if you want to use debugging and logging
+aspects for the J9P server), but is not required.
+
+LINKS
+-----
+
+[1] http://en.wikipedia.org/wiki/Plan9
+[2] http://en.wikipedia.org/wiki/Inferno_(operating_system)
+[3] http://en.wikipedia.org/wiki/Styx_(protocol)
+[4] http://java.sun.com/javase/
+[5] http://ant.apache.org/
+[6] http://www.eclipse.org/aspectj/

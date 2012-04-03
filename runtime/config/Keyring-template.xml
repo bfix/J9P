@@ -1,0 +1,54 @@
+<Keyring>
+	<Protocols>
+		<Protocol type="..." class="..."/>
+	</Protocols>
+	<Identity proto="p9any" version="v.2">
+		<Domain name="<dom1>" proto="p9sk1"/>
+		<Domain name="<dom1>" proto="p9sk2"/>
+		<Domain name="<dom2>" proto="inferno"/>
+	</Identity>
+	<Identity proto="p9sk1" domain="<dom1>" user="..." password="..."/>
+	<Identity proto="p9sk2" domain="<dom1>" user="..." password="..."/>
+	<Identity proto="inferno" domain="<dom2>">
+		<PrivateKey name="${server}">
+			<Modulus>...</Modulus>
+			<PublicExp>...</PublicExp>
+			<PrivateExp>...</PrivateExp>
+			<PrimeP>...</PrimeP>
+			<PrimeQ>...</PrimeQ>
+			<PrimeExpP>...</PrimeExpP>
+			<PrimeExpQ>...</PrimeExpQ>
+			<Coefficient>...</Coefficient>
+		</PrivateKey>
+		<Certificate name="${server}" expires="...">
+			<PublicKey name="${server}">
+				<Modulus>...</Modulus>
+				<PublicExp>...</PublicExp>
+			</PublicKey>
+			<Signature digest="sha1">
+				<Value>...</Value>
+				<PublicKey name="${signer}">
+					<Modulus>...</Modulus>
+					<PublicExp>...</PublicExp>
+				</PublicKey>
+			</Signature>
+		</Certificate>
+		<Certificate name="${signer}" expires="...">
+			<PublicKey name="${signer}">
+				<Modulus>...</Modulus>
+				<PublicExp>...</PublicExp>
+			</PublicKey>
+			<Signature digest="sha1">
+				<Value>...</Value>
+				<PublicKey name="${signer}">
+					<Modulus>...</Modulus>
+					<PublicExp>...</PublicExp>
+				</PublicKey>
+			</Signature>
+		</Certificate>
+		<DHparam>
+			<Alpha>...</Alpha>
+			<P>...</P>
+		</DHparam>
+	</Identity>
+</Keyring>

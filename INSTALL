@@ -1,0 +1,158 @@
+
+#######################################################################
+    J9P - Pure Java implementation for Styx/9P protocol servers
+#######################################################################
+
+Copyright (C) 2009-2012, Bernd R. Fix <bernd.fix@aspector.com>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the  GNU General Public License  as published by the
+Free Software Foundation; either version 3 of the License,  or (at your
+option) any later version.
+
+This program is  distributed  in the hope  that it will  be useful, but
+WITHOUT ANY WARRANTY;  without even the implied warranty  of MERCHANTA-
+BILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; if not, see <http://www.gnu.org/licenses/>.
+
+#######################################################################
+
+This document describes how to compile the J9P framework from
+source and how to set-up a working runtime environment for example
+servers or servers written by yourself.
+
+
+=======================================================================
+1. PRE-REQUISITES
+=======================================================================
+
+    To install J9P/StyxLib and run at least some of the example
+    servers, you will need:
+    
+        * Java2 1.5+ SDK
+        * Apache Ant 1.6+
+        * a supported Unix operating system (e.g. Linux)
+        * Plan9/Inferno installation as server client
+        
+    Optional components include:
+    
+        * JCE provider implementation (highly recommended)
+        * PostgreSQL server and JDBC driver (used in dbfs example)
+        * AspectJ (AOP extension for Java used for debugging)
+
+=======================================================================
+2. BUILDING THE JAVA ARCHIVES
+=======================================================================
+
+    Before preparing the runtime environment, you can start with
+    building the Java archives from Java source code. All you need
+    is an installed and working J2 1.5+ SDK and Apache Ant 1.6+. 
+    
+    From the installed directory 'J9P-1.0' (base directory) you change
+    to the 'build/' directory and use Ant to compile all archives:
+    
+    	$ cd build/
+    	$ ant distall
+
+	After completion you find the two jar files named 'J9P.lib-1.1.jar'
+    and 'J9P.engines-1.1.jar'in the build directory .
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2.1. GENERATING JAVADOC FOR J9P CORE LIBRARY
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+	If you want to create the API documentation for the base library,
+	you can now issue the command:
+	
+		$ ant doc
+		
+	The documentation is created in the 'docs/lib-api' directory.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2.2. USING DEBUGGING ASPECTS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    The source package now includes debugging aspects that are helpful
+    if you want to change/enhance the J9P library. To use these aspects,
+    you must have a working AspectJ installation and (recommended)
+    integration into your favorite IDE. See "http://eclipse.org/aspectj"
+    for more information.
+    
+    The normal 'ant' build does *not* include the aspects and the
+    library is fully functional without them.
+    
+=======================================================================
+3. RUNNING THE EXAMPLES
+=======================================================================
+    
+    If you just want to run the included example servers, you have
+    finished the package installation process.
+    
+    More details on how to run the example servers, see file 'EXAMPLES'
+    in the 'docs/' directory. If you want to program your own servers,
+    consult the document 'DEV_GUIDE' that also includes some additional
+    examples.
+    
+    If you want to use the security features included in 9P like
+    authentication and message security, please continue with the next
+    chapter.
+        
+=======================================================================
+4. SETTING UP A RUNTIME ENVIRONMENT
+=======================================================================
+
+    This sections deals with the necessary preparation of a runtime
+    environment as required by J9P server implementations.
+    
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4.1. ENABELING SECURITY (ENCRYPTION/DIGESTS)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    If you want to use all the security features built into the 9P
+    protocol, you need to install a separate JCE provider implementation
+    that supports all algorithms you require for your server.
+    
+    The following matrix lists the available algorithms depending
+    on the chosen JCE provider:
+    
+                                    +---------------------------+
+                        +-----------+           Encryption      |
+                        |  Digests  |    RC4    |  DES  |  IDEA |
+                        |SHA|MD4|MD5| 40|128|256|cbc|ebc|cbc|ebc|
+    +-------------------+---+---+---+---+---+---+---+---+---+---+
+    | [1] Sun JCE       | x |   | x |   |   |   | x | x |   |   |
+    +-------------------+---+---+---+---+---+---+---+---+---+---+
+    | [2] Bouncycastle  | x | x | x | x | x |(x)| x | x |   |   |
+    +-------------------+---+---+---+---+---+---+---+---+---+---+
+    
+    [1] Sun JCE: the "normal" Java SDk from SUN includes a SunJCE
+                 implementation with support for a few algorithms.
+                 This is what you get without an additional JCE
+                 provider implementation.
+                 
+    [2] Bouncycastle: An open-source JCE provider implementation
+                 from http://bouncycastle.org. Does not support
+                 the proprietary IDEA algorithm and has a bug
+                 with long RC4 keys.
+    
+    I haven't check any other JCE provider implementations; if
+    you know of any other, please let me know and tell me what
+    algorithms are supported - especially IDEA and a bug-free
+    RC4.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4.2. ENABELING SECURITY (AUTHENTICATION)                     [OPTIONAL]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    In order to be able to authenticate clients and to give proof
+    to clients of its own identity, the server requires some
+    'authentication data'. This data is stored in a XML configuration
+    file that is passed to a server as an argument on the command
+    line.
+    
+    The authentication setup and use is described in detail in the
+    AUTHENTICATION document.
+ 

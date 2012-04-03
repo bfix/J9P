@@ -1,0 +1,21 @@
+
+#######################################################################
+    J9P - Pure Java implementation for Styx/9P protocol servers
+#######################################################################
+
+
+Version 1.0 --> 1.1 (2009/04/22)
+
+    * Completely reworked authentication in J9P to support other
+      authentication schemes than just Inferno. Work for a generic
+      'p9any' support is started and the protocols 'p2sk1' and
+      'p9sk2' are supported under Plan9.
+      
+    * Changed source license from 'GPLv3' to 'LGPLv3' to allow the
+      use of the framework in non-GPL environments.
+      
+    * Include AspectJ debugging aspects (used internally for debugging,
+      development-only aspects). Are not needed and automatically
+      removed from distributed libraries if compiled with Ant. Use
+      Eclipse or any other IDE with AspectJ support to use the
+      aspects for your own work on the framework. 

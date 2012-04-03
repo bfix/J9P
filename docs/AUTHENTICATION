@@ -1,0 +1,202 @@
+
+#######################################################################
+    J9P - Pure Java implementation for Styx/9P protocol servers
+#######################################################################
+
+Copyright (C) 2009-2012, Bernd R. Fix <bernd.fix@aspector.com>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the  GNU General Public License  as published by the
+Free Software Foundation; either version 3 of the License,  or (at your
+option) any later version.
+
+This program is  distributed  in the hope  that it will  be useful, but
+WITHOUT ANY WARRANTY;  without even the implied warranty  of MERCHANTA-
+BILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; if not, see <http://www.gnu.org/licenses/>.
+
+#######################################################################
+
+This document describes how to set-up and use authentication and
+message security (message digests and encryption).
+
+=======================================================================
+1. PRE-REQUISITES
+=======================================================================
+
+    You need an additional Java Cryptographic Extension (JCE) provider
+    implementation to use digests and encryptions algorithms supported
+    by J9P and client systems (Inferno,Plan9,...). See chapter 4.1 of
+    the INSTALL document.
+
+=======================================================================
+2. BASICS
+=======================================================================
+
+    In order to be able to authenticate clients and to give proof
+    to clients of its own identity, the server requires some
+    'authentication data'. This data is stored in a XML configuration
+    file that is passed to a server as an argument on the command
+    line:
+    
+|  <Keyring>
+|    <Protocols>
+|      <Protocol type="otp" class="myJ9P.auth.OTP"/>
+|      <Protocol type="krb" class="myJ9P.auth.Kerberos"/>
+|    </Protocols>
+|    <Identity proto="p9any" version="v.2">
+|      <Domain name="mydomain.net" proto="p9sk1"/>
+|      <Domain name="mydomain.net" proto="p9sk2"/>
+|      <Domain name="otherdomain.org" proto="inferno"/>
+|    </Identity>
+|    <Identity proto="p9sk1" domain="mydomain.net" user="..." password="..."/>
+|    <Identity proto="p9sk2" domain="mydomain.net" user="..." password="..."/>
+|    <Identity proto="otp" ... />
+|    <Identity proto="krb" ... />
+|    :
+|  </Keyring>
+    
+    The configuration defines a keyring of identities used by the J9P
+    server (or client, for that matter) for different authentication
+    protocols supported.
+    
+    The built-in authentication protocols include:
+    
+        * Inferno - SSL-like authentication before session start
+        * p9any protocols (p9sk1 and p9sk2 supported) 
+    
+    You can write custom authentication handlers to handle custom
+    authentication methods. To use the handler, include a new
+    <Protocol .../> section and name your protocol and the class
+    implementing it. By using built-in names you can even replace
+    built-in handlers. See the DEV_GUIDE document for details on
+    how to write custom authentication handlers.
+    
+    Every Identity is described in an <Identity .../> section and is
+    linked to a specific authentication protocol (attribute 'proto').
+    The content of the Identity element describes the credential used
+    for the specific authentication protocol.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2.1. "PLAN9" AUTHENTICATION
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    A special identity ('negotiator') is used for the 'p9any' protocol;
+    it has no credentials, but a list of supported protocols for all
+    supported domains. This way you can allow clients from different
+    domains to connect to your server. Of course your "server identity"
+    must be registered on an AS in that domain.
+    
+    The list of domain protocols should correspond with identities
+    defined in the keyring - you must provide one identity for every
+    domain entry in the p9any list that can handle the specified
+    protocol.
+    
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2.2. "INFERNO" AUTHENTICATION
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    The Identity data used in Inferno authentications is described
+    in detail in chapter 3.2.
+    
+    A J9P server can not select an Identity to be used for
+    authentication until some time into the process itself. When a
+    server receives a client certificate, it derives the domain
+    information from the signer name. You have to make sure that the
+    signer in an Inferno domain has the domain name appended (in the
+    usual way) like 'signer.mydomain.net'. J9P will than use the
+    identity for the domain "mydomain.net" and protocol "inferno".
+    This way you can support clients from multiple Inferno domains.
+    
+    The name of the signer is specified while setting up the signer
+    instance with the command 'auth/createsignerkey <name>'.
+    
+=======================================================================
+3.  BUILDING KEYRINGS
+=======================================================================
+    
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3.1. "PLAN9" AUTHENTICATION
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    The currently supported authentication protocols for Plan9 clients
+    are 'p9sk1' and 'p9sk2'.
+
+    A 'p9sk' identity is defined by a name and a password. The name
+    and password must match the information stored on the AS of the
+    domain. First step is always to register your server identity
+    with the domain AS.
+
+    
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3.2. "INFERNO" AUTHENTICATION
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    It is more than work to hand-craft a identity for the Inferno
+    authentication process, so here is how to create one with the
+    help of Inferno and other tools:
+
+    The Inferno authentication is a SSL-like process that happens
+    before the actual 9P session is started. To use this process
+    with J9P follow these steps:
+
+-----------------------------------------------------------------------
+3.2.1. GET SERVER AND SIGNER AUTHENTICATION USING INFERNO
+-----------------------------------------------------------------------
+
+    Under Inferno, log on as administrative user (usually 'inferno')
+    on the authentication server and create a new account for your
+    server named "example" (replace that with your chosen server name):
+    
+    % mkdir /usr/example 
+    % mkdir /usr/example/lib 
+    % mkdir /usr/example/keyring
+    % mkdir /usr/example/charon
+    
+    Now set a password for the account:
+    
+    % auth/changelogin example
+    
+    Follow the prompts to set a new password and the date the password
+    expires. Next is to request a certificate for the server:
+    
+    % getauthinfo example
+    
+    Follow the prompts and request a certificate for the user 'example'.
+    You must provide the password that you have defined a step earlier.
+    
+    A new file is stored with the name '/usr/inferno/keyring/example' -
+    it contains a certificate and a private key for the server. Copy
+    the file to the 'runtime/config' directory of your J9P installation
+    and name it 'server.keyring'. 
+    
+    Now we copy the certificate of the signer (contained in the
+    file '/keydb/signerkey') to the same 'runtime/config' directory into
+    a file named 'signer.keyring'. [If you know how to extract the
+    certificate, but not the private key of the signer - let me know.] 
+    
+-----------------------------------------------------------------------
+3.2.2. CONVERTING KEYRING FILES TO J9P FORMAT
+-----------------------------------------------------------------------
+
+    Change to the 'runtime' directory of your J9P installation and
+    convert the server.keyring into J9P format:
+
+    $ bin/serverAuthData.sh config/server.keyring > config/AuthData.xml
+    
+    Convert the certificate of the signer:
+    
+    $ bin/signerCert.sh config/signer.keyring > config/SignerCert.xml
+    
+    Now open the file 'config/AuthData.xml' in an editor of your choice
+    and replace the line '<Certificate name="${signer}" ... />' with
+    the content of the file 'config/SignerCert.xml'. Reformat (indent)
+    the changed file to your liking and save it.
+    
+    We have created a server authentication file to be used by J9P
+    servers. Delete the intermediate keyring files ('*.keyring');
+    especially the signer file! This file exposes the private key of
+    the signer in your authentication domain!

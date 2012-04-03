@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project basedir="." default="dist" name="J9P-engines">
+	<import file="dependencies.xml"/>
+	
+	<property name="SRC"     value="../src/engines"/>
+	<property name="CLASSES" value="classes.engines"/>
+	<property name="LIB"     value="J9P.core-1.1.jar"/>
+	<property name="ARCHIVE" value="J9P.engines-1.1.jar"/>
+
+    <target name="init">
+        <mkdir dir="${CLASSES}"/>
+        <copy includeemptydirs="false" todir="${CLASSES}">
+            <fileset dir="${SRC}" excludes="**/*.java"/>
+        </copy>
+    </target>
+    
+    <target name="clean">
+        <delete dir="${CLASSES}"/>
+    </target>
+    
+    <target depends="clean" name="purge">
+        <delete file="${ARCHIVE}"/>
+    </target>
+    
+    <target depends="init" name="build">
+        <javac debug="true" debuglevel="none" destdir="${CLASSES}" source="1.6" target="1.6">
+            <src path="${SRC}"/>
+        	<classpath>
+        	    <pathelement location="${LIB}"/>
+        	</classpath>
+        </javac>
+    </target>
+
+    <target depends="build" name="dist">
+		<jar destfile="${ARCHIVE}" basedir="${CLASSES}" />
+    </target>
+
+    <target name="distall">
+        <antcall target="depend.engines"/>
+    </target>
+
+</project>
