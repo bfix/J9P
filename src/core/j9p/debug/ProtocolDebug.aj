@@ -42,11 +42,11 @@ public aspect ProtocolDebug {
 	 * <p>Message processing (Styx/9P level).</p>
 	 * @param inst Protocol - specific protocol implementation
 	 * @param id int - session identifier
-	 * @param in StyxMessage - incoming styx message
+	 * @param in Message - incoming styx message
 	 * @param cr Credential - user credential
 	 */
-	private pointcut process (Protocol inst, int id, StyxMessage in, Credential cr) :
-		   call (StyxMessage Protocol+.process (int,StyxMessage, Credential))
+	private pointcut process (Protocol inst, int id, Message in, Credential cr) :
+		   call (Message Protocol+.process (int,Message, Credential))
 		&& args (id,in, cr)
 		&& target (inst)
 	;
@@ -54,18 +54,18 @@ public aspect ProtocolDebug {
 	/**
 	 * <p>Get message.</p>
 	 */
-	private pointcut getMessage (StyxChannel ch) :
-		   call (StyxMessage StyxChannel+.getNextMessage ())
+	private pointcut getMessage (Channel ch) :
+		   call (Message StyxChannel+.getNextMessage ())
 		&& target (ch)
 	;
 	//-----------------------------------------------------------------
 	/**
 	 * <p>Send (combined) authentication message call.</p>
 	 * @param msg String - message content (multi-line)
-	 * @param ch StyxChannel - communication channel
+	 * @param ch Channel - communication channel
 	 */
-	private pointcut sendMessage (StyxMessage msg, StyxChannel ch) :
-		   call (boolean StyxChannel+.sendMessage (StyxMessage))
+	private pointcut sendMessage (Message msg, Channel ch) :
+		   call (boolean Channel+.sendMessage (Message))
 		&& args (msg)
 		&& target (ch)
 	;
@@ -77,11 +77,11 @@ public aspect ProtocolDebug {
 	 * <p>Print incoming and outgoing messages.</p>
 	 * @param inst Protocol - specific protocol implementation
 	 * @param id int - session identifier
-	 * @param in StyxMessage - incoming styx message
+	 * @param in Message - incoming styx message
 	 * @param cr Credential - user credential
-	 * @return StyxMessage - outgoing styx message
+	 * @return Message - outgoing styx message
 	 */
-	StyxMessage around (Protocol inst, int id, StyxMessage in, Credential cr) :
+	StyxMessage around (Protocol inst, int id, Message in, Credential cr) :
 		process (inst, id, in, cr)
 	{
 		if (SHOW_P9MSG)
@@ -96,9 +96,9 @@ public aspect ProtocolDebug {
 	//-----------------------------------------------------------------
 	/**
 	 * <p>After successful read of next message.</p> 
-	 * @param msg StyxMessage - message received (or null)
+	 * @param msg Message - message received (or null)
 	 */
-	after(StyxChannel ch) returning (StyxMessage msg) : getMessage (ch) {
+	after(Channel ch) returning (Message msg) : getMessage (ch) {
 		if (msg == null || !SHOW_RAW)
 			return;
 		String fmt = getChannelFormat (ch);
@@ -113,7 +113,7 @@ public aspect ProtocolDebug {
 	 * <p>Reading next message failed.</p>
 	 * @param exc IOException - reason
 	 */
-	after(StyxChannel ch) throwing (IOException exc) : getMessage (ch) {
+	after(Channel ch) throwing (IOException exc) : getMessage (ch) {
 		
 		String fmt = getChannelFormat (ch);
 		if (fmt == null || !SHOW_RAW)
@@ -125,9 +125,9 @@ public aspect ProtocolDebug {
 	//-----------------------------------------------------------------
 	/**
 	 * <p>Before send of message.</p> 
-	 * @param msg StyxMessage - outgoing message
+	 * @param msg Message - outgoing message
 	 */
-	before(StyxMessage msg, StyxChannel ch) : sendMessage (msg, ch) {
+	before(Message msg, Channel ch) : sendMessage (msg, ch) {
 		if (msg == null || !SHOW_RAW)
 			return;
 		String fmt = getChannelFormat (ch);
@@ -142,7 +142,7 @@ public aspect ProtocolDebug {
 	 * <p>Sending message failed.</p>
 	 * @param exc IOException - reason
 	 */
-	after(StyxMessage msg, StyxChannel ch) throwing (IOException exc) : sendMessage (msg, ch) {
+	after(Message msg, Channel ch) throwing (IOException exc) : sendMessage (msg, ch) {
 		String fmt = getChannelFormat (ch);
 		if (fmt == null || !SHOW_RAW)
 			return;
@@ -159,11 +159,11 @@ public aspect ProtocolDebug {
 	 * @param jp JoinPoint - point in control flow
 	 * @return String - name of handled format 
 	 */
-	public String getChannelFormat (StyxChannel ch) {
+	public String getChannelFormat (Channel ch) {
 		
 		if (ch instanceof SecureChannel)
 			return "CRYPTO";
-		if (ch instanceof StyxStreamChannel)
+		if (ch instanceof StreamChannel)
 			return "RAW";
 		return "";
 	}

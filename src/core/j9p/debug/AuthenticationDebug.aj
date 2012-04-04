@@ -39,10 +39,10 @@ public aspect AuthenticationDebug {
 	//=================================================================
 	/**
 	 * <p>Authentication process.</p>
-	 * @param ch StyxChannel - communication channel
+	 * @param ch Channel - communication channel
 	 */
-	private pointcut authenticateOnChannel (StyxChannel ch) :
-		call (int AP_Generic+.process (StyxChannel))
+	private pointcut authenticateOnChannel (Channel ch) :
+		call (int AP_Generic+.process (Channel))
 		&& args (ch)
 	;
 	//-----------------------------------------------------------------
@@ -168,10 +168,10 @@ public aspect AuthenticationDebug {
 	//-----------------------------------------------------------------
 	/**
 	 * <p>Authenticate user.</p>
-	 * @param ch StyxChannel - communication channel
+	 * @param ch Channel - communication channel
 	 * @return Credential - user credential
 	 */
-	int around (StyxChannel ch) : authenticateOnChannel (ch) {
+	int around (Channel ch) : authenticateOnChannel (ch) {
 		// call authentication method
 		int rc = proceed (ch);
 		if (rc == AuthProtocolHandler.AUTH_SUCCESS)
